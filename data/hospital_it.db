@@ -1,0 +1,113 @@
+import sqlite3
+from pathlib import Path
+
+# Ensure data directory exists
+Path("data").mkdir(exist_ok=True)
+
+DB_PATH = "data/hospital_it.db"
+
+def create_database():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # -----------------------------
+    # Systems table
+    # -----------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS systems (
+        system_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        system_name TEXT NOT NULL UNIQUE,
+        criticality TEXT NOT NULL CHECK (criticality IN ('Critical', 'High', 'Medium'))
+    )
+    """)
+
+    # -----------------------------
+    # System status logs
+    # -----------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS system_status_logs (
+        log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        system_id INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('UP', 'DOWN')),
+        timestamp TEXT NOT NULL,
+        FOREIGN KEY (system_id) REFERENCES systems(system_id)
+    )
+    """)
+
+    # -----------------------------
+    # Incidents table
+    # -----------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS incidents (
+        incident_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        system_id INTEGER NOT NULL,
+        severity TEXT NOT NULL CHECK (severity IN ('Critical', 'High', 'Medium', 'Low')),
+        start_time TEXT NOT NULL,
+        end_time TEXT,
+        root_cause TEXT,
+        resolution_notes TEXT,
+        FOREIGN KEY (system_id) REFERENCES systems(system_id)
+    )
+    """)
+
+    # -----------------------------
+    # Users table (simulated roles)
+    # -----------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        role TEXT NOT NULL CHECK (role IN ('IT Admin', 'Clinical Systems Analyst', 'Viewer'))
+    )
+    """)
+
+    # -----------------------------
+    # Audit logs table
+    # -----------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        action TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+    )
+    """)
+
+    # -----------------------------
+    # Seed hospital systems
+    # -----------------------------
+    systems = [
+        ("EHR", "Critical"),
+        ("Lab Information System", "Critical"),
+        ("Imaging / PACS", "High"),
+        ("Pharmacy System", "Critical"),
+        ("Nurse Call System", "Medium")
+    ]
+
+    cursor.executemany("""
+    INSERT OR IGNORE INTO systems (system_name, criticality)
+    VALUES (?, ?)
+    """, systems)
+
+    # -----------------------------
+    # Seed users
+    # -----------------------------
+    users = [
+        ("admin", "IT Admin"),
+        ("analyst1", "Clinical Systems Analyst"),
+        ("viewer1", "Viewer")
+    ]
+
+    cursor.executemany("""
+    INSERT OR IGNORE INTO users (username, role)
+    VALUES (?, ?)
+    """, users)
+
+    conn.commit()
+    conn.close()
+
+    print("hospital_it.db created and initialized successfully.")
+
+if __name__ == "__main__":
+    create_database()
